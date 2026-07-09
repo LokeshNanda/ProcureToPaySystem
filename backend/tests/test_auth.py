@@ -1,6 +1,7 @@
 import pytest
 
 from app.core.rbac import Roles
+from app.modules.auth import service as auth_service
 from app.modules.users import service as users_service
 
 
@@ -68,3 +69,22 @@ async def test_refresh_with_access_token_rejected(client, db_session):
 async def test_refresh_with_garbage_token_401(client, db_session):
     resp = await client.post("/api/v1/auth/refresh", json={"refresh_token": "not-a-jwt"})
     assert resp.status_code == 401
+
+
+@pytest.mark.asyncio
+async def test_password_reset_flow(client, db_session):
+    await users_service.create_user(
+        db_session, email="u@x.com", full_name="U", password="oldpass12", role_names=[Roles.REQUESTER]
+    )
+    raw = await auth_service.begin_password_reset(db_session, "u@x.com")
+    assert raw is not None
+    await auth_service.confirm_password_reset(db_session, raw, "newpass123")
+    # old password now fails, new works
+    assert await auth_service.authenticate(db_session, "u@x.com", "oldpass12") is None
+    assert await auth_service.authenticate(db_session, "u@x.com", "newpass123") is not None
+
+
+@pytest.mark.asyncio
+async def test_password_reset_request_always_202(client, db_session):
+    resp = await client.post("/api/v1/auth/password-reset", json={"email": "nobody@x.com"})
+    assert resp.status_code == 202
