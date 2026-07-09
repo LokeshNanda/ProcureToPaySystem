@@ -5,10 +5,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.audit import AuditWriter
 from app.core.db import get_session
+from app.core.deps import get_current_active_user
 from app.core.errors import ProblemException
 from app.core.mail import send_email
 from app.core.rbac import Roles, require_roles
 from app.modules.users import service
+from app.modules.users.models import User as UserModel
 from app.modules.users.schemas import (
     PageMeta, RoleAssign, UserCreate, UserOut, UserPage,
 )
@@ -46,6 +48,11 @@ async def create_user(
     await _audit.record(db, action="user.create", object_type="user", object_id=str(user.id),
                         after={"email": user.email, "roles": payload.role_names})
     await db.commit()
+    return UserOut.model_validate(user)
+
+
+@router.get("/me/profile", response_model=UserOut)
+async def me(user: UserModel = Depends(get_current_active_user)) -> UserOut:
     return UserOut.model_validate(user)
 
 

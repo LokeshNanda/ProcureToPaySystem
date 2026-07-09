@@ -60,6 +60,17 @@ async def test_non_admin_forbidden(client, db_session):
 
 
 @pytest.mark.asyncio
+async def test_me_returns_current_user(client, db_session):
+    user = await service.create_user(
+        db_session, email="me@x.com", full_name="Me", password="pw123456", role_names=[Roles.ADMIN]
+    )
+    token = create_access_token(sub=str(user.id), roles=[Roles.ADMIN], jti="j")
+    resp = await client.get("/api/v1/users/me/profile", headers={"Authorization": f"Bearer {token}"})
+    assert resp.status_code == 200
+    assert resp.json()["email"] == "me@x.com"
+
+
+@pytest.mark.asyncio
 async def test_deactivate_writes_audit(client, db_session):
     from sqlalchemy import select
     from app.core.audit import AuditLog
