@@ -1,7 +1,13 @@
-import pytest
+import hashlib
+from datetime import datetime, timedelta, timezone
 
+import pytest
+from sqlalchemy import select
+
+from app.core.errors import ProblemException
 from app.core.rbac import Roles
 from app.modules.auth import service as auth_service
+from app.modules.auth.models import PasswordResetToken
 from app.modules.users import service as users_service
 
 
@@ -88,3 +94,36 @@ async def test_password_reset_flow(client, db_session):
 async def test_password_reset_request_always_202(client, db_session):
     resp = await client.post("/api/v1/auth/password-reset", json={"email": "nobody@x.com"})
     assert resp.status_code == 202
+
+
+@pytest.mark.asyncio
+async def test_password_reset_token_is_single_use(client, db_session):
+    await users_service.create_user(
+        db_session, email="s@x.com", full_name="S", password="oldpass12", role_names=[Roles.REQUESTER]
+    )
+    raw = await auth_service.begin_password_reset(db_session, "s@x.com")
+    assert raw is not None
+    await auth_service.confirm_password_reset(db_session, raw, "newpass123")
+    # replay with the same raw token must be rejected
+    with pytest.raises(ProblemException) as exc:
+        await auth_service.confirm_password_reset(db_session, raw, "another-pw")
+    assert exc.value.status == 400
+
+
+@pytest.mark.asyncio
+async def test_password_reset_expired_token_rejected(client, db_session):
+    await users_service.create_user(
+        db_session, email="e@x.com", full_name="E", password="oldpass12", role_names=[Roles.REQUESTER]
+    )
+    raw = await auth_service.begin_password_reset(db_session, "e@x.com")
+    assert raw is not None
+    row = (await db_session.execute(
+        select(PasswordResetToken).where(
+            PasswordResetToken.token_hash == hashlib.sha256(raw.encode()).hexdigest()
+        )
+    )).scalar_one()
+    row.expires_at = datetime.now(timezone.utc) - timedelta(hours=1)
+    await db_session.flush()
+    with pytest.raises(ProblemException) as exc:
+        await auth_service.confirm_password_reset(db_session, raw, "x")
+    assert exc.value.status == 400

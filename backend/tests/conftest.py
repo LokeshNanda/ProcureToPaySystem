@@ -12,7 +12,7 @@ from app.models.base import Base
 # e.g.:
 import app.modules.users.models  # noqa: F401  (added in Task 4)
 import app.core.audit  # noqa: F401  (AuditLog model, added in Task 6)
-import app.modules.auth.models  # noqa: F401  (RefreshToken model, added in Task 7)
+import app.modules.auth.models  # noqa: F401  (RefreshToken added in Task 7, PasswordResetToken in Task 8)
 
 TEST_DB_URL = os.environ.get(
     "TEST_DATABASE_URL",
