@@ -1,0 +1,4 @@
+{
+  "login": { "title": "Sign in to OpenP2P", "email": "Email", "password": "Password", "submit": "Sign in", "error": "Invalid email or password" },
+  "home": { "welcome": "Welcome, {{name}}", "roles": "Your roles", "logout": "Log out" }
+}
