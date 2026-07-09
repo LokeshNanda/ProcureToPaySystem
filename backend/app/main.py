@@ -7,6 +7,7 @@ from app.core.errors import install_error_handlers
 from app.core.logging import setup_logging
 from app.health.router import router as health_router
 from app.modules.auth.router import router as auth_router
+from app.modules.org.router import cost_center_router, gl_account_router
 from app.modules.users.router import router as users_router
 
 
@@ -26,6 +27,8 @@ def create_app() -> FastAPI:
     app.include_router(health_router)
     app.include_router(auth_router, prefix="/api/v1")
     app.include_router(users_router, prefix="/api/v1")
+    app.include_router(cost_center_router, prefix="/api/v1")
+    app.include_router(gl_account_router, prefix="/api/v1")
     return app
 
 
