@@ -31,6 +31,13 @@ exclude = ["tests*"]
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
+# Run the session-scoped async DB engine fixture and all function-scoped
+# tests/fixtures on a single shared event loop. asyncpg connections are
+# bound to the loop they were created on, so a session-scoped engine and
+# per-test connections must share one loop to avoid "attached to a
+# different loop" errors.
+asyncio_default_fixture_loop_scope = "session"
+asyncio_default_test_loop_scope = "session"
 testpaths = ["tests"]
 
 [tool.ruff]
