@@ -1,4 +1,6 @@
-from sqlalchemy import select
+import secrets
+
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.security import hash_password
@@ -45,3 +47,21 @@ async def deactivate(db: AsyncSession, user: User) -> User:
     user.is_active = False
     await db.flush()
     return user
+
+
+async def list_users(db: AsyncSession, page: int, page_size: int) -> tuple[list[User], int]:
+    total = (await db.execute(select(func.count()).select_from(User))).scalar_one()
+    rows = (
+        await db.execute(select(User).order_by(User.created_at).offset((page - 1) * page_size).limit(page_size))
+    ).scalars().all()
+    return list(rows), total
+
+
+async def get_user(db: AsyncSession, user_id) -> User | None:
+    return await db.get(User, user_id)
+
+
+async def invite_user(db: AsyncSession, *, email: str, full_name: str, role_names: list[str]) -> tuple[User, str]:
+    temp_password = secrets.token_urlsafe(12)
+    user = await create_user(db, email=email, full_name=full_name, password=temp_password, role_names=role_names)
+    return user, temp_password
