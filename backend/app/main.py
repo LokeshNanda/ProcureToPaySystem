@@ -2,7 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.core.audit import AuditMiddleware
-from app.core.config import settings
+from app.core.config import assert_secure_config, settings
 from app.core.errors import install_error_handlers
 from app.core.logging import setup_logging
 from app.health.router import router as health_router
@@ -11,6 +11,7 @@ from app.modules.users.router import router as users_router
 
 
 def create_app() -> FastAPI:
+    assert_secure_config(settings)
     setup_logging()
     app = FastAPI(title="OpenP2P", version="0.0.1")
     app.add_middleware(

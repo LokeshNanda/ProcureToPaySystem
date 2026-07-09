@@ -3,8 +3,16 @@ import secrets
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.errors import ProblemException
+from app.core.rbac import ALL_ROLES
 from app.core.security import hash_password
 from app.modules.users.models import Role, User
+
+
+def _validate_role_names(role_names: list[str]) -> None:
+    for name in role_names:
+        if name not in ALL_ROLES:
+            raise ProblemException(400, "Invalid Role", f"Unknown role: {name}")
 
 
 async def get_or_create_role(db: AsyncSession, name: str, description: str = "") -> Role:
@@ -25,6 +33,7 @@ async def get_by_email(db: AsyncSession, email: str) -> User | None:
 async def create_user(
     db: AsyncSession, *, email: str, full_name: str, password: str, role_names: list[str]
 ) -> User:
+    _validate_role_names(role_names)
     roles = [await get_or_create_role(db, n) for n in role_names]
     user = User(
         email=email.lower(),
@@ -38,6 +47,7 @@ async def create_user(
 
 
 async def set_roles(db: AsyncSession, user: User, role_names: list[str]) -> User:
+    _validate_role_names(role_names)
     user.roles = [await get_or_create_role(db, n) for n in role_names]
     await db.flush()
     return user

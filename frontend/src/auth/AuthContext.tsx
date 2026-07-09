@@ -1,8 +1,8 @@
 import { createContext, useContext, useState, type ReactNode } from "react";
-import { apiFetch, login as apiLogin, setAccessToken, setRefreshToken } from "../lib/api";
+import { apiFetch, getRefreshToken, login as apiLogin, logout as apiLogout, setAccessToken, setRefreshToken } from "../lib/api";
 
 type User = { id: string; email: string; full_name: string; roles: { name: string }[] };
-type AuthState = { user: User | null; signIn: (e: string, p: string) => Promise<void>; signOut: () => void };
+type AuthState = { user: User | null; signIn: (e: string, p: string) => Promise<void>; signOut: () => Promise<void> };
 
 const Ctx = createContext<AuthState | null>(null);
 
@@ -18,7 +18,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(await me.json());
   }
 
-  function signOut() {
+  async function signOut() {
+    const refreshToken = getRefreshToken();
+    if (refreshToken) {
+      try {
+        await apiLogout(refreshToken);
+      } catch {
+        // best-effort: backend revoke failing must not block local sign-out
+      }
+    }
     setAccessToken(null);
     setRefreshToken(null);
     setUser(null);

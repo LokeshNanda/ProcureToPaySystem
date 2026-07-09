@@ -53,11 +53,15 @@ def install_error_handlers(app: FastAPI) -> None:
 
     @app.exception_handler(RequestValidationError)
     async def _handle_validation(_: Request, exc: RequestValidationError):
+        errors = [
+            {k: v for k, v in error.items() if k not in ("input", "ctx")}
+            for error in exc.errors()
+        ]
         return _problem(
             422,
             "Validation Error",
             "Request validation failed",
-            extra={"errors": jsonable_encoder(exc.errors())},
+            extra={"errors": jsonable_encoder(errors)},
         )
 
     @app.exception_handler(Exception)

@@ -90,4 +90,12 @@ async def confirm_password_reset(db: AsyncSession, raw_token: str, new_password:
     user = await db.get(User, row.user_id)
     user.password_hash = hash_password(new_password)
     row.used_at = datetime.now(tz=timezone.utc)
+    now = datetime.now(tz=timezone.utc)
+    outstanding = (await db.execute(
+        select(RefreshToken).where(
+            RefreshToken.user_id == user.id, RefreshToken.revoked_at.is_(None)
+        )
+    )).scalars().all()
+    for token in outstanding:
+        token.revoked_at = now
     await db.flush()

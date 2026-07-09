@@ -66,6 +66,22 @@ async def test_validation_error_returns_problem_json():
 
 
 @pytest.mark.asyncio
+async def test_validation_error_does_not_echo_submitted_input():
+    secret_value = "super-secret-password-should-not-echo"
+    async with _client(_build_app()) as c:
+        # 'age' must be an int; sending a secret-looking string triggers a validation
+        # error whose default FastAPI behavior would echo the submitted value back.
+        resp = await c.post("/needs-body", json={"name": secret_value, "age": "not-an-int"})
+    assert resp.status_code == 422
+    body = resp.json()
+    for error in body["errors"]:
+        assert "input" not in error
+        assert "ctx" not in error
+        assert set(error.keys()) <= {"loc", "msg", "type", "url"}
+    assert secret_value not in resp.text
+
+
+@pytest.mark.asyncio
 async def test_unhandled_exception_returns_generic_500_problem_json():
     # raise_app_exceptions=False: Starlette's ServerErrorMiddleware re-raises after
     # sending the response, so we must let the transport swallow the re-raise to

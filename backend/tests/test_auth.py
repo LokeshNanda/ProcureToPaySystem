@@ -111,6 +111,25 @@ async def test_password_reset_token_is_single_use(client, db_session):
 
 
 @pytest.mark.asyncio
+async def test_password_reset_confirm_revokes_outstanding_refresh_tokens(client, db_session):
+    await users_service.create_user(
+        db_session, email="revoke@x.com", full_name="R", password="oldpass12", role_names=[Roles.REQUESTER]
+    )
+    login = (await client.post(
+        "/api/v1/auth/login", json={"email": "revoke@x.com", "password": "oldpass12"}
+    )).json()
+    pre_reset_refresh = login["refresh_token"]
+
+    raw = await auth_service.begin_password_reset(db_session, "revoke@x.com")
+    assert raw is not None
+    await auth_service.confirm_password_reset(db_session, raw, "newpass123")
+
+    with pytest.raises(ProblemException) as exc:
+        await auth_service.rotate(db_session, pre_reset_refresh)
+    assert exc.value.status == 401
+
+
+@pytest.mark.asyncio
 async def test_password_reset_expired_token_rejected(client, db_session):
     await users_service.create_user(
         db_session, email="e@x.com", full_name="E", password="oldpass12", role_names=[Roles.REQUESTER]

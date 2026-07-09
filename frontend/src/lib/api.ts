@@ -37,3 +37,10 @@ export async function login(email: string, password: string) {
   if (!resp.ok) throw new Error("login_failed");
   return resp.json() as Promise<{ access_token: string; refresh_token: string }>;
 }
+
+export async function logout(refreshToken: string): Promise<void> {
+  await fetch(`${BASE}/auth/logout`, {
+    method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ refresh_token: refreshToken }),
+  });
+}

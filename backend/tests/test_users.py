@@ -1,5 +1,6 @@
 import pytest
 
+from app.core.errors import ProblemException
 from app.core.rbac import Roles
 from app.core.security import create_access_token
 from app.modules.users import service
@@ -27,6 +28,27 @@ async def test_set_roles_replaces_roles(db_session):
     assert {r.name for r in user.roles} == {"Approver", "Receiver"}
 
 
+@pytest.mark.asyncio
+async def test_create_user_with_unknown_role_raises_400(db_session):
+    with pytest.raises(ProblemException) as exc:
+        await service.create_user(
+            db_session, email="badrole@example.com", full_name="Bad",
+            password="pw123456", role_names=["Nope"],
+        )
+    assert exc.value.status == 400
+
+
+@pytest.mark.asyncio
+async def test_set_roles_with_unknown_role_raises_400(db_session):
+    user = await service.create_user(
+        db_session, email="carol@example.com", full_name="Carol",
+        password="pw123456", role_names=["Requester"],
+    )
+    with pytest.raises(ProblemException) as exc:
+        await service.set_roles(db_session, user, ["Nope"])
+    assert exc.value.status == 400
+
+
 async def _admin_headers(db):
     admin = await service.create_user(
         db, email="root@x.com", full_name="Root", password="pw123456", role_names=[Roles.ADMIN]
@@ -47,6 +69,17 @@ async def test_admin_can_create_and_list_users(client, db_session):
     listing = await client.get("/api/v1/users", headers=headers)
     assert listing.status_code == 200
     assert listing.json()["meta"]["total"] >= 2
+
+
+@pytest.mark.asyncio
+async def test_admin_create_user_with_unknown_role_400(client, db_session):
+    headers = await _admin_headers(db_session)
+    resp = await client.post(
+        "/api/v1/users",
+        headers=headers,
+        json={"email": "unknownrole@x.com", "full_name": "Unknown", "role_names": ["Nope"]},
+    )
+    assert resp.status_code == 400
 
 
 @pytest.mark.asyncio
