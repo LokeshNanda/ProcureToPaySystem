@@ -7,6 +7,7 @@ type Props = {
   hasOwner: boolean;
   initial: OrgItem | null;
   submitting: boolean;
+  error: string | null;
   onClose: () => void;
   onSubmit: (values: OrgFormValues) => void;
 };
@@ -14,7 +15,7 @@ type Props = {
 // Mounted only while the modal is open (see OrgAdminPage), so component-local
 // state can be seeded straight from `initial` without an effect: closing and
 // reopening naturally remounts this component with fresh state.
-export default function OrgFormModal({ title, hasOwner, initial, submitting, onClose, onSubmit }: Props) {
+export default function OrgFormModal({ title, hasOwner, initial, submitting, error, onClose, onSubmit }: Props) {
   const { t } = useTranslation();
   const [code, setCode] = useState(initial?.code ?? "");
   const [name, setName] = useState(initial?.name ?? "");
@@ -65,6 +66,8 @@ export default function OrgFormModal({ title, hasOwner, initial, submitting, onC
             />
           </>
         )}
+
+        {error && <p role="alert" className="mt-2 text-sm text-red-700">{error}</p>}
 
         <div className="mt-4 flex justify-end gap-2">
           <button type="button" className="rounded border px-3 py-1.5 text-sm" onClick={onClose}>

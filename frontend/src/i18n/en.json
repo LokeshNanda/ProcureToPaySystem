@@ -11,6 +11,8 @@
     "filterActive": "Active", "filterInactive": "Inactive", "filterAll": "All",
     "costCentersTitle": "Cost Centers", "glAccountsTitle": "GL Accounts",
     "codeImmutable": "Code cannot be changed after creation",
+    "saveError": "Could not save. {{detail}}", "codeExists": "That code already exists.",
+    "importError": "Import failed. {{detail}}",
     "loading": "Loading...", "loadError": "Failed to load records", "noResults": "No records found",
     "ownerId": "Owner ID", "ownerIdOptional": "Owner ID (optional)",
     "createTitle": "Create {{entity}}", "editTitle": "Edit {{entity}}",

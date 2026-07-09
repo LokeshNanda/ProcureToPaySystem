@@ -15,6 +15,24 @@ type Props = {
 
 const PAGE_SIZE = 25;
 
+// Error carrying the HTTP status so onError handlers can special-case 409.
+type ApiError = Error & { status?: number };
+
+// Reads an RFC 7807 problem+json body (best-effort) and throws an Error that
+// carries the HTTP status plus a human-readable detail/title.
+async function throwProblem(res: Response): Promise<never> {
+  let detail = "";
+  let title = "";
+  try {
+    const body = await res.json();
+    detail = body.detail ?? "";
+    title = body.title ?? "";
+  } catch {
+    // non-JSON error body: fall through with empty detail/title
+  }
+  throw Object.assign(new Error(detail || title || "Request failed"), { status: res.status });
+}
+
 export default function OrgAdminPage({ resource, hasOwner, title, entityLabel }: Props) {
   const { t } = useTranslation();
   const queryClient = useQueryClient();
@@ -23,9 +41,16 @@ export default function OrgAdminPage({ resource, hasOwner, title, entityLabel }:
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState<OrgItem | null>(null);
   const [importResult, setImportResult] = useState<ImportResult | null>(null);
+  const [formError, setFormError] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const listKey = ["org", resource, filter, page];
+
+  // Maps a save error (create/update) to a translated message: 409 -> code
+  // already exists, otherwise a generic save error with the server detail.
+  const saveErrorMessage = (err: ApiError) =>
+    err.status === 409 ? t("org.codeExists") : t("org.saveError", { detail: err.message });
 
   const { data, isLoading, isError } = useQuery({
     queryKey: listKey,
@@ -43,13 +68,15 @@ export default function OrgAdminPage({ resource, hasOwner, title, entityLabel }:
       const body: Record<string, unknown> = { code: values.code, name: values.name };
       if (hasOwner && values.owner_id) body.owner_id = values.owner_id;
       const r = await apiFetch(`/${resource}`, { method: "POST", body: JSON.stringify(body) });
-      if (!r.ok) throw new Error("create_failed");
+      if (!r.ok) return throwProblem(r);
       return r.json();
     },
     onSuccess: () => {
       invalidateList();
+      setFormError(null);
       setModalOpen(false);
     },
+    onError: (err: ApiError) => setFormError(saveErrorMessage(err)),
   });
 
   const updateMutation = useMutation({
@@ -57,31 +84,35 @@ export default function OrgAdminPage({ resource, hasOwner, title, entityLabel }:
       const body: Record<string, unknown> = { name: values.name };
       if (hasOwner) body.owner_id = values.owner_id || null;
       const r = await apiFetch(`/${resource}/${id}`, { method: "PATCH", body: JSON.stringify(body) });
-      if (!r.ok) throw new Error("update_failed");
+      if (!r.ok) return throwProblem(r);
       return r.json();
     },
     onSuccess: () => {
       invalidateList();
+      setFormError(null);
       setModalOpen(false);
     },
+    onError: (err: ApiError) => setFormError(saveErrorMessage(err)),
   });
 
   const deactivateMutation = useMutation({
     mutationFn: async (id: string) => {
       const r = await apiFetch(`/${resource}/${id}/deactivate`, { method: "POST" });
-      if (!r.ok) throw new Error("deactivate_failed");
+      if (!r.ok) return throwProblem(r);
       return r.json();
     },
-    onSuccess: invalidateList,
+    onSuccess: () => { setActionError(null); invalidateList(); },
+    onError: (err: ApiError) => setActionError(t("org.saveError", { detail: err.message })),
   });
 
   const reactivateMutation = useMutation({
     mutationFn: async (id: string) => {
       const r = await apiFetch(`/${resource}/${id}/reactivate`, { method: "POST" });
-      if (!r.ok) throw new Error("reactivate_failed");
+      if (!r.ok) return throwProblem(r);
       return r.json();
     },
-    onSuccess: invalidateList,
+    onSuccess: () => { setActionError(null); invalidateList(); },
+    onError: (err: ApiError) => setActionError(t("org.saveError", { detail: err.message })),
   });
 
   const importMutation = useMutation({
@@ -89,13 +120,18 @@ export default function OrgAdminPage({ resource, hasOwner, title, entityLabel }:
       const form = new FormData();
       form.append("file", file);
       const r = await apiFetch(`/${resource}/import`, { method: "POST", body: form });
-      if (!r.ok) throw new Error("import_failed");
+      if (!r.ok) return throwProblem(r);
       return r.json();
     },
     onSuccess: (result) => {
+      setActionError(null);
       setImportResult(result);
       invalidateList();
       if (fileInputRef.current) fileInputRef.current.value = "";
+    },
+    onError: (err: ApiError) => {
+      setImportResult(null);
+      setActionError(t("org.importError", { detail: err.message }));
     },
   });
 
@@ -104,11 +140,13 @@ export default function OrgAdminPage({ resource, hasOwner, title, entityLabel }:
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
 
   function openCreate() {
+    setFormError(null);
     setEditing(null);
     setModalOpen(true);
   }
 
   function openEdit(item: OrgItem) {
+    setFormError(null);
     setEditing(item);
     setModalOpen(true);
   }
@@ -123,7 +161,11 @@ export default function OrgAdminPage({ resource, hasOwner, title, entityLabel }:
 
   function handleImportClick() {
     const file = fileInputRef.current?.files?.[0];
-    if (!file) return;
+    if (!file) {
+      setImportResult(null);
+      setActionError(t("org.selectFileFirst"));
+      return;
+    }
     importMutation.mutate(file);
   }
 
@@ -171,6 +213,10 @@ export default function OrgAdminPage({ resource, hasOwner, title, entityLabel }:
           </button>
         </div>
       </div>
+
+      {actionError && (
+        <p role="alert" className="mt-3 text-sm text-red-700">{actionError}</p>
+      )}
 
       {importResult && <ImportResultView result={importResult} />}
 
@@ -257,7 +303,8 @@ export default function OrgAdminPage({ resource, hasOwner, title, entityLabel }:
           hasOwner={hasOwner}
           initial={editing}
           submitting={createMutation.isPending || updateMutation.isPending}
-          onClose={() => setModalOpen(false)}
+          error={formError}
+          onClose={() => { setFormError(null); setModalOpen(false); }}
           onSubmit={handleSubmit}
         />
       )}

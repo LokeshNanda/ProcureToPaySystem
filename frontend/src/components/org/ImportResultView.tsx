@@ -12,7 +12,7 @@ export default function ImportResultView({ result }: { result: ImportResult }) {
           <ul className="list-disc pl-6">
             {result.errors.map((e, idx) => (
               <li key={`${e.row}-${idx}`} className="text-red-700">
-                {t("org.rowError", { row: e.row, code: e.code, reason: e.reason })}
+                {t("org.rowError", { row: e.row, code: e.code ?? "—", reason: e.reason })}
               </li>
             ))}
           </ul>

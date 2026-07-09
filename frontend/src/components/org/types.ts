@@ -10,7 +10,7 @@ export type ListMeta = { page: number; page_size: number; total: number };
 
 export type ListResponse = { data: OrgItem[]; meta: ListMeta };
 
-export type ImportRowError = { row: number; code: string; reason: string };
+export type ImportRowError = { row: number; code: string | null; reason: string };
 
 export type ImportResult = { created: number; updated: number; errors: ImportRowError[] };
 
