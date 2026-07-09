@@ -14,6 +14,7 @@ __pycache__/
 # Node / frontend
 node_modules/
 dist/
+*.tsbuildinfo
 
 # Local storage / data
 storage_data/
