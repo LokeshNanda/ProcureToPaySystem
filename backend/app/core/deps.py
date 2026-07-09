@@ -3,6 +3,7 @@ import uuid
 from fastapi import Depends, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.audit import set_audit_actor
 from app.core.db import get_session
 from app.core.errors import ProblemException
 from app.core.security import decode_token
@@ -29,6 +30,7 @@ async def get_current_user(
     user = await db.get(User, user_id)
     if user is None:
         raise ProblemException(401, "Invalid Token", "User not found.")
+    set_audit_actor(str(user.id))
     return user
 
 

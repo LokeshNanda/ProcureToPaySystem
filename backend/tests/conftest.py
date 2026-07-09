@@ -11,8 +11,8 @@ from app.models.base import Base
 # Later tasks register their models here so Base.metadata is fully populated,
 # e.g.:
 import app.modules.users.models  # noqa: F401  (added in Task 4)
+import app.core.audit  # noqa: F401  (AuditLog model, added in Task 6)
 #   import app.modules.auth.models  # noqa: F401   (added in Task 7)
-#   import app.core.audit  # noqa: F401           (AuditLog model, added in Task 6)
 
 TEST_DB_URL = os.environ.get(
     "TEST_DATABASE_URL",
