@@ -11,6 +11,7 @@ from app.models.base import Base
 import app.modules.users.models  # noqa: F401,E402
 import app.modules.auth.models  # noqa: F401,E402
 import app.core.audit  # noqa: F401,E402
+import app.modules.org.models  # noqa: F401,E402
 
 config = context.config
 if config.config_file_name is not None:
