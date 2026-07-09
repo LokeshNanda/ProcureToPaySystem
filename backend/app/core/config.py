@@ -6,7 +6,7 @@ class Settings(BaseSettings):
 
     database_url: str = "postgresql+asyncpg://openp2p:openp2p@localhost:5432/openp2p"
     redis_url: str = "redis://localhost:6379/0"
-    secret_key: str = "change-me-in-prod"
+    secret_key: str = "dev-only-insecure-change-me-in-production-0123456789"
     jwt_algorithm: str = "HS256"
     access_token_ttl_minutes: int = 15
     refresh_token_ttl_days: int = 7
