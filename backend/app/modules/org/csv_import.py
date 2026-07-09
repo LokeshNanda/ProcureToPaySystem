@@ -7,11 +7,16 @@ from app.modules.org import service
 from app.modules.users.service import get_by_email
 
 
-def _rows(csv_text: str, required: set[str]) -> tuple[list[dict], list[dict]]:
+def _rows(csv_text: str, required: set[str]) -> tuple[list[dict], set[str], list[dict]]:
     reader = csv.DictReader(io.StringIO(csv_text))
-    if reader.fieldnames is None or not required.issubset({(f or "").strip() for f in reader.fieldnames}):
-        return [], [{"row": 1, "code": None, "reason": f"CSV must have a header row with columns: {sorted(required)}"}]
-    return list(reader), []
+    fieldnames = {(f or "").strip() for f in (reader.fieldnames or [])}
+    if reader.fieldnames is None or not required.issubset(fieldnames):
+        return (
+            [],
+            fieldnames,
+            [{"row": 1, "code": None, "reason": f"CSV must have a header row with columns: {sorted(required)}"}],
+        )
+    return list(reader), fieldnames, []
 
 
 def _truthy(val: str | None, default: bool = True) -> bool:
@@ -21,9 +26,11 @@ def _truthy(val: str | None, default: bool = True) -> bool:
 
 
 async def import_cost_centers(db: AsyncSession, csv_text: str) -> dict:
-    rows, structural = _rows(csv_text, {"code", "name"})
+    rows, fieldnames, structural = _rows(csv_text, {"code", "name"})
     if structural:
         return {"created": 0, "updated": 0, "errors": structural}
+    has_owner_col = "owner_email" in fieldnames
+    has_active_col = "active" in fieldnames
     created = updated = 0
     errors: list[dict] = []
     for i, raw in enumerate(rows, start=2):  # row 1 is the header
@@ -32,31 +39,42 @@ async def import_cost_centers(db: AsyncSession, csv_text: str) -> dict:
         if not code or not name:
             errors.append({"row": i, "code": code or None, "reason": "code and name are required"})
             continue
-        owner_id = None
-        owner_email = (raw.get("owner_email") or "").strip()
-        if owner_email:
-            owner = await get_by_email(db, owner_email)
-            if owner is None:
-                errors.append({"row": i, "code": code, "reason": f"unknown owner email '{owner_email}'"})
-                continue
-            owner_id = owner.id
-        active = _truthy(raw.get("active"))
+
+        # owner_id semantics: None -> clear/unset; service._UNSET -> leave unchanged.
+        # Only touch owner when the owner_email column is present in the header.
+        owner_id: object = service._UNSET
+        if has_owner_col:
+            owner_email = (raw.get("owner_email") or "").strip()
+            if owner_email:
+                owner = await get_by_email(db, owner_email)
+                if owner is None:
+                    errors.append({"row": i, "code": code, "reason": f"unknown owner email '{owner_email}'"})
+                    continue
+                owner_id = owner.id
+            else:
+                owner_id = None  # column present, blank cell -> clear owner
+
         existing = await service.get_cost_center_by_code(db, code)
         if existing is None:
-            cc = await service.create_cost_center(db, code=code, name=name, owner_id=owner_id)
-            await service.set_cost_center_active(db, cc, active)
+            # On create there is no prior owner; _UNSET means "no owner".
+            create_owner = None if owner_id is service._UNSET else owner_id
+            cc = await service.create_cost_center(db, code=code, name=name, owner_id=create_owner)
+            if has_active_col:
+                await service.set_cost_center_active(db, cc, _truthy(raw.get("active")))
             created += 1
         else:
             await service.update_cost_center(db, existing, name=name, owner_id=owner_id)
-            await service.set_cost_center_active(db, existing, active)
+            if has_active_col:
+                await service.set_cost_center_active(db, existing, _truthy(raw.get("active")))
             updated += 1
     return {"created": created, "updated": updated, "errors": errors}
 
 
 async def import_gl_accounts(db: AsyncSession, csv_text: str) -> dict:
-    rows, structural = _rows(csv_text, {"code", "name"})
+    rows, fieldnames, structural = _rows(csv_text, {"code", "name"})
     if structural:
         return {"created": 0, "updated": 0, "errors": structural}
+    has_active_col = "active" in fieldnames
     created = updated = 0
     errors: list[dict] = []
     for i, raw in enumerate(rows, start=2):
@@ -65,14 +83,15 @@ async def import_gl_accounts(db: AsyncSession, csv_text: str) -> dict:
         if not code or not name:
             errors.append({"row": i, "code": code or None, "reason": "code and name are required"})
             continue
-        active = _truthy(raw.get("active"))
         existing = await service.get_gl_account_by_code(db, code)
         if existing is None:
             gl = await service.create_gl_account(db, code=code, name=name)
-            await service.set_gl_account_active(db, gl, active)
+            if has_active_col:
+                await service.set_gl_account_active(db, gl, _truthy(raw.get("active")))
             created += 1
         else:
             await service.update_gl_account(db, existing, name=name)
-            await service.set_gl_account_active(db, existing, active)
+            if has_active_col:
+                await service.set_gl_account_active(db, existing, _truthy(raw.get("active")))
             updated += 1
     return {"created": created, "updated": updated, "errors": errors}
