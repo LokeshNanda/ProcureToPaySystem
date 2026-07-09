@@ -25,17 +25,21 @@ async def ready(response: Response, db: AsyncSession = Depends(get_session)) -> 
         pass
     try:
         r = aioredis.from_url(settings.redis_url)
-        await r.ping()
-        await r.aclose()
-        checks["redis"] = True
+        try:
+            await r.ping()
+            checks["redis"] = True
+        finally:
+            await r.aclose()
     except Exception:  # noqa: BLE001
         pass
     try:
         store = get_storage()
         key = store.generate_key(".probe")
-        await store.save(key, b"ok")
-        await store.delete(key)
-        checks["storage"] = True
+        try:
+            await store.save(key, b"ok")
+            checks["storage"] = True
+        finally:
+            await store.delete(key)
     except Exception:  # noqa: BLE001
         pass
     ok = all(checks.values())
