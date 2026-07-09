@@ -1,4 +1,22 @@
 {
   "login": { "title": "Sign in to OpenP2P", "email": "Email", "password": "Password", "submit": "Sign in", "error": "Invalid email or password" },
-  "home": { "welcome": "Welcome, {{name}}", "roles": "Your roles", "logout": "Log out" }
+  "home": { "welcome": "Welcome, {{name}}", "roles": "Your roles", "logout": "Log out" },
+  "nav": { "costCenters": "Cost Centers", "glAccounts": "GL Accounts" },
+  "org": {
+    "code": "Code", "name": "Name", "owner": "Owner", "status": "Status",
+    "active": "Active", "inactive": "Inactive",
+    "create": "Create", "edit": "Edit", "save": "Save", "cancel": "Cancel",
+    "deactivate": "Deactivate", "reactivate": "Reactivate",
+    "import": "Import CSV", "importResult": "Imported: {{created}} created, {{updated}} updated, {{errors}} errors",
+    "filterActive": "Active", "filterInactive": "Inactive", "filterAll": "All",
+    "costCentersTitle": "Cost Centers", "glAccountsTitle": "GL Accounts",
+    "codeImmutable": "Code cannot be changed after creation",
+    "loading": "Loading...", "loadError": "Failed to load records", "noResults": "No records found",
+    "ownerId": "Owner ID", "ownerIdOptional": "Owner ID (optional)",
+    "createTitle": "Create {{entity}}", "editTitle": "Edit {{entity}}",
+    "chooseFile": "Choose CSV file", "selectFileFirst": "Select a CSV file first",
+    "importErrorsTitle": "Import errors", "rowError": "Row {{row}} ({{code}}): {{reason}}",
+    "previous": "Previous", "next": "Next", "pageOf": "Page {{page}} of {{totalPages}}",
+    "actions": "Actions"
+  }
 }

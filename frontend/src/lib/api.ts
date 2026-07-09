@@ -22,7 +22,11 @@ async function refresh(): Promise<boolean> {
 
 export async function apiFetch(path: string, init: RequestInit = {}, retry = true): Promise<Response> {
   const headers = new Headers(init.headers);
-  headers.set("Content-Type", "application/json");
+  // FormData bodies (e.g. CSV import) must let the browser set its own
+  // multipart/form-data boundary; forcing JSON here would break the upload.
+  if (!(init.body instanceof FormData) && !headers.has("Content-Type")) {
+    headers.set("Content-Type", "application/json");
+  }
   if (accessToken) headers.set("Authorization", `Bearer ${accessToken}`);
   const resp = await fetch(`${BASE}${path}`, { ...init, headers });
   if (resp.status === 401 && retry && (await refresh())) return apiFetch(path, init, false);
